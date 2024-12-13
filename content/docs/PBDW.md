@@ -63,7 +63,9 @@ given a parameter $\mu^{true} \in \mathcal{P}^{bk}$, find $(u^*_{N,M}(\mu^{true}
 
 $$\begin{equation}(u^*_{N,M}(\mu^{true}) ,z^*_{N,M}(\mu^{true}) , \eta^*_{N,M}(\mu^{true})) =\underset{\eta_{M,N} \in \mathcal{U}}{\underset{z_{N,M}\in \mathcal{Z}_N}{\underset{u_{N,M} \in \mathcal{U}}{\textrm{arginf}}}} \ \lVert \eta_{N,M} \rVert^2
 \end{equation}$$
+
 subject to
+
 $$ \begin{align}
 &(u_{N,M},v)=(\eta_{N,M},v)+(z_{N,M},v), \ \forall v\in \mathcal{U},\\
 & (u_{N,M},\Phi)=(u_{true}(\mu^{true}),\Phi), \  \forall \Phi \in \mathcal{U}_M.
@@ -82,6 +84,7 @@ $$ \begin{align}
 & (\eta^*_{N,M}(\mu^{true}),p)=0, \  \forall p \in \mathcal{Z}_N.
 \end{align}
 $$
+
 and set $$ u^*_{N,M}(\mu^{true})=\eta^*_{N,M}(\mu^{true})+z^*_{N,M}(\mu^{true}).$$
 
 We now state the algebraic form of the PBDW problem:
