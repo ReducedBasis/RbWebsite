@@ -19,7 +19,7 @@ A reduced problem to solve in order to find an approximation solution in the red
 
 [Python Notebook on advection-diffusion model problem](/post/pbdw)
 
-[Python Notebook on Helmholtz model problem](/post/PBDWHelmholtz)
+[Python Notebook on Helmholtz model problem](/post/pbdwhelmholtz)
 
 [Code with Feel++](https://docs.feelpp.org/mor/0.110/pbdw.html)
 
