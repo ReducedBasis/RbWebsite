@@ -51,7 +51,7 @@ We intend that $\lVert u^{true}(\mu^{true})-u^{bk}(\mu^{true}) \rVert$ is small 
 The PBDW is decomposed in two parts: one offline and one online.
 
 In the following notebook, we will employ:
-- as our model problem a 2D advection-diffusion problem,
+- as our model problem a Helmholtz equation,
 - some measures that could also be possibly be noisy (here we will consider the case with no noise),
 - a sequence of background spaces that reflect our (prior) best knowledge model bk, 
 - gaussians for our observations with a proper choice of localization.

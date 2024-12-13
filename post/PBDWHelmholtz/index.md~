@@ -1,7 +1,7 @@
 ---
 # Documentation: https://docs.hugoblox.com/managing-content/
 
-title: "My Post"
+title: ""
 subtitle: ""
 summary: ""
 authors: []
@@ -79,10 +79,10 @@ We are going to use in this example a 2D  Helmholtz problem with the Finite Elem
 solving on a unit square (denoted $\Omega$) the following equation:
 $$a^{\mu}(u,v)=f^{\mu}_g \forall v \in \mathcal{U}$$,
 where
-\begin{align}
+$$\begin{align*}
 &a^{\mu}(w,v)=(1+i \varepsilon \mu) \int_{\Omega} \nabla w \cdot \nabla v - \mu^2\int_{\Omega} w v, \ \forall w,v \in \mathcal{U},\\
 & f^{\mu}_g(v)=\mu \int_{\Omega} (2 x_1^2 + np.exp(x_2)) v + \mu \int_{\Omega} g v, \  \forall v \in \mathcal{U},
-\end{align}
+\end{align*}$$
 where $u \in \mathcal{U}:=H^1(\Omega)$ represents the unknown, $\mu \in [2,10]$ is our variable parameter, $\varepsilon=10^{-3}$ is the fixed dissipation, and $g \in L^2(\Omega)$ is a function that allow us to construct a model with a bias with respect to the data observations. The lack of knowledge of the value of $\mu$ constitutes the anticipated parametric ignorance in the model, while uncertainty in $g$ constitutes the unanticipated non-parametric ignorance.
 We endow $\mathcal{U}$ with the standard $H^1$ inner product and norm:
 $(w,v)= \int_{\Omega} \nabla w \cdot \nabla v + wv$ and $\lVert w \rVert= \sqrt{(w,w)}$.
