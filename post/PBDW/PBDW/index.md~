@@ -73,22 +73,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 ```
 
-## The 2D Helmholtz model problem:
+## The 2D advection-diffusion model problem:
 
-We are going to use in this example a 2D  Helmholtz problem with the Finite Element Method (FEM), which consists in 
-solving on a unit square (denoted $\Omega$) the following equation:
-$$a^{\mu}(u,v)=f^{\mu}_g \forall v \in \mathcal{U}$$,
-where
+We are going to use in this example a 2D  advection-diffusion problem with the Finite Element Method (FEM), which consists in 
+solving on a unit square (denoted $\Omega$) the following equations:
 \begin{align}
-&a^{\mu}(w,v)=(1+i \varepsilon \mu) \int_{\Omega} \nabla w \cdot \nabla v - \mu^2\int_{\Omega} w v, \ \forall w,v \in \mathcal{U},\\
-& f^{\mu}_g(v)=\mu \int_{\Omega} (2 x_1^2 + np.exp(x_2)) v + \mu \int_{\Omega} g v, \  \forall v \in \mathcal{U},
+&- \Delta u + b(\mu) \cdot \nabla u =x_1 x_2 + g_1, \textrm{ in } \Omega,\\
+& u=4 x_2(1-x_2)(1+g_2), \textrm{ on } \Omega_{left}:=\partial \Omega \cap \{x=0\},\\
+& \partial_n u (\mu)=0, \textrm{ on } \partial \Omega \backslash \Omega_{left},
 \end{align}
-where $u \in \mathcal{U}:=H^1(\Omega)$ represents the unknown, $\mu \in [2,10]$ is our variable parameter, $\varepsilon=10^{-3}$ is the fixed dissipation, and $g \in L^2(\Omega)$ is a function that allow us to construct a model with a bias with respect to the data observations. The lack of knowledge of the value of $\mu$ constitutes the anticipated parametric ignorance in the model, while uncertainty in $g$ constitutes the unanticipated non-parametric ignorance.
-We endow $\mathcal{U}$ with the standard $H^1$ inner product and norm:
-$(w,v)= \int_{\Omega} \nabla w \cdot \nabla v + wv$ and $\lVert w \rVert= \sqrt{(w,w)}$.
-We employ $P1$ finite elements to get a proper solution and obtain the system $\mathbf{A} \mathbf{x} =\mathbf{f}$ to solve where the assembled matrix $\mathbf{A}$ corresponds to the bilinear part $a^{\mu}(w,v) $.
+where $u \in H^1(\Omega)$ represents the unknown, $\mu \in \mathbb{R}^2$ is our variable parameter, and $g_1$ and $g_2$ are two functions that allow us to construct a model with a bias with respect to the data observations. The lack of knowledge of the value of $\mu$ constitutes the anticipated parametric ignorance in the model, while uncertainty in $g_1$ and $g_2$ constitutes the unanticipated non-parametric ignorance.
 
-This problem model comes from the paper "A parameterized-background data-weak approach to variational data assimilation: formulation, analysis, and application to acoustics "(https://dspace.mit.edu/bitstream/handle/1721.1/97702/Patera_A%20parameterized.pdf?sequence=1&isAllowed=y).
+We employ $P1$ finite elements to get a proper solution and obtain the system $\mathbf{A} \mathbf{x} =\mathbf{f}$ to solve where the assembled matrix $\mathbf{A}$ corresponds to the bilinear part $\int_{\Omega} (\nabla u, \nabla v) - (b(\mu),\nabla v) u + \int_{\Omega_{left}} (b(\mu), \nabla_n u) v $.
+
+The dirichlet boundary conditions are imposed with a penalization method, called by the line: 
+solve(*condense(K,f, x=uvp, D=D)),
+
+where x=uvp gives the values at the boundaries of the velocity and D refers to the boundary decomposition.
+
+This problem model comes from the paper "PBDW method for state estimation: error analysis for noisy data and non-linear formulation"(https://arxiv.org/abs/1906.00810).
 
 
 
@@ -128,6 +131,8 @@ mesh
 
 
 ```python
+"""First step."""
+
 # Assembling matrices
 
 from skfem.assembly import BilinearForm, LinearForm
@@ -139,24 +144,26 @@ def laplace(u, v, _):
     return dot(grad(u), grad(v))
 
 @BilinearForm
+def gradu(u, v, w):    
+    return - u*(v.grad[0]*w.bmu1+v.grad[1]*w.bmu2) 
+
+@BilinearForm
+def boundary_normal_gradient(u, v, w):
+    """ Bilinear part for int(grad_n(u), v) on the left boundary """
+    return dot(grad(u), w.n) * v
+
+@BilinearForm
 def mass(u, v, _): #H1 norm (norm for the space U)
     return u * v +dot(grad(u), grad(v))
 
 @BilinearForm
 def L2mass(u, v, _): #L2 norm
     return u * v 
-
-"""Right-hand side function with f =  [ 2*x1^2 + exp(x2) ] + g """ 
-@LinearForm
-def rhs_f(v,w):
-    x1, x2 = w.x[0], w.x[1]
-    return  (2 * x1**2 + np.exp(x2)) * v 
-@LinearForm
-def rhs_f2(v,w):
-    return w.g * v 
+    
+  
 ```
 
-In the code bellow, the function SolveHelmoltzProblem(mu,Mesh,measures) takes as inputs the parameter $\mu \in \mathcal{P}^{bk} \subset \mathbb{R}$, a mesh, and a boolean used for the bias on the right-hand side function, and it returns the associated solution.
+In the code bellow, the function SolveAdvDiffProblem([mu1,mu2],Mesh,measures) takes as inputs the parameter $\mu \in \mathcal{P}^{bk} \subset \mathbb{R}^2$, a mesh, and a boolean used for the bias on the right-hand side function and on the dirichlet boundary conditions, and it returns the associated solution.
 
 
 ```python
@@ -164,32 +171,53 @@ from skfem import *
 # Compute solution 
 element = ElementTriP1() #P1 FEM elements
 
-def SolveHelmholtzProblem(mu,Mesh,measures):
+def SolveAdvDiffProblem(mu,Mesh,measures):
     # mu: variable parameter
     # mesh: FE mesh
     # measures: Boolean (if true, the right-hand side function and dirichlet parameter are adapted to the generation of the data observations)
     basis = Basis(Mesh, element) 
-    print('Parameter mu:',mu)
+    #print('Parameter mu:',mu)
+    mu1,mu2=mu[0],mu[1]
+    bmu1= lambda x: mu[0]*(np.cos(mu[1])) 
+    bmu2= lambda x: mu[0]*(np.sin(mu[1])) 
+    bmu1=basis.project(bmu1)
+    bmu2=basis.project(bmu2)
     
     ## Assembling global problem
     A= laplace.assemble(basis)
-    A=A.astype(np.complex128)
-    A*=(1 + 1j * 1e-3 * mu)
-    A2=L2mass.assemble(basis)
-    A-=mu**2*A2.astype(np.complex128)
+    A2=gradu.assemble(basis,bmu1=basis.interpolate(bmu1),bmu2=basis.interpolate(bmu2))
+    A+=A2
+
+    ## boundary conditions
+    left_basis = FacetBasis(Mesh, element, facets=Mesh.boundaries['right'])
+    
+    def profil_left(x):
+        # Dirichlet boundary conditions
+        if measures==True:
+            #return (x[0]==1)*200*x[1]#(8*x[1]*(1-x[1])*(1+ np.sin(2*np.pi*x[1]))) #with g2!=0
+            return (x[0]==1)*(4*x[1]*(1-x[1])*(1+ np.sin(2*np.pi*x[1]))) #with g2!=0
+        else:
+            #return (x[0]==1)*100*x[1]#(4*x[1]*(1-x[1]))  #with g2=0
+            return (x[0]==1)*(4*x[1]*(1-x[1]))  #with g2=0
+
+    u_boundary=left_basis.project(profil_left)
+    D = basis.get_dofs(['right'])
+    ## Neumann boundary conditions 
+    A_boundary = boundary_normal_gradient.assemble(left_basis)
+    A+=A_boundary
 
     ## Right hand side functions
     if measures==True:
-        g1 = lambda x: 0.5*np.exp(-x[0])+np.cos(1.3*np.pi*x[1]) #with g!=0
+        #g1 = lambda x: x[0]**2 -x[1] #with g1!=0
+        g1 = lambda x: 0.2*x[0]**2 +x[0]*x[1] #with g1!=0
         g_proj1 = basis.project(g1)
     else:
-        g1 = lambda x: 0 #with g=0
+        #g1 = lambda x: -x[1] #with g1=0
+        g1 = lambda x: x[0]*x[1] #with g1!=0
         g_proj1 = basis.project(g1)
         
-    f=rhs_f.assemble(basis)
-    f*=mu
-    f+=mu*rhs_f2.assemble(basis,g=basis.interpolate(g_proj1))
-    u = solve(A,f)
+    f=g_proj1
+    u = solve(*condense(A,f, x=u_boundary, D=D))
 
     return u
     
@@ -202,17 +230,13 @@ def SolveHelmholtzProblem(mu,Mesh,measures):
 
 from skfem.visuals.matplotlib import plot, draw, savefig
 
-u=SolveHelmholtzProblem(8,mesh,True) #
-plot(mesh, u.real, shading='gouraud', colorbar=True)
+u=SolveAdvDiffProblem([0.4,np.pi/6],mesh,True) #
+plot(mesh, u, shading='gouraud', colorbar=True)
 
-u=SolveHelmholtzProblem(8,mesh,False) # examples
-plot(mesh, u.real, shading='gouraud', colorbar=True)
+u=SolveAdvDiffProblem([0.4,np.pi/6],mesh,False) # examples
+plot(mesh, u, shading='gouraud', colorbar=True)
 
 ```
-
-    Parameter mu: 8
-    Parameter mu: 8
-
 
 
 
@@ -223,13 +247,13 @@ plot(mesh, u.real, shading='gouraud', colorbar=True)
 
 
     
+![png](./PBDW_9_1.png)
+    
+
+
+
+    
 ![png](./PBDW_9_2.png)
-    
-
-
-
-    
-![png](./PBDW_9_3.png)
     
 
 
@@ -262,8 +286,8 @@ print("number of nodes: ",NumberOfNodesFineMesh)
 num_dofs_uFineMesh = FineBasis.doflocs.shape[1] # or np.shape(u)[0] for DOFs
 print("number of DoFs: ",num_dofs_uFineMesh)
 
-massMat=mass.assemble(FineBasis) #H1 norm for U
-L2massMat=L2mass.assemble(FineBasis) #L2 norm 
+massMat=mass.assemble(FineBasis)
+L2massMat=L2mass.assemble(FineBasis)
 ```
 
     number of nodes:  1089
@@ -272,12 +296,9 @@ L2massMat=L2mass.assemble(FineBasis) #L2 norm
 
 
 ```python
-utrue=SolveHelmholtzProblem(6,mesh,True).real # True for measures
-plot(FineMesh, utrue.real, shading='gouraud', colorbar=True)
+utrue=SolveAdvDiffProblem([1.4,np.pi/3],mesh,True) # True for measures
+plot(FineMesh, utrue, shading='gouraud', colorbar=True)
 ```
-
-    Parameter mu: 6
-
 
 
 
@@ -288,7 +309,7 @@ plot(FineMesh, utrue.real, shading='gouraud', colorbar=True)
 
 
     
-![png](./PBDW_14_2.png)
+![png](./PBDW_14_1.png)
     
 
 
@@ -310,14 +331,16 @@ NumberOfSnapshots=0
 NumberOfModesN=15
 print("number of modes for the bk model: ",NumberOfModesN)
 
-mu1list=np.linspace(2,10,30) #P^bk
+mu1list=np.linspace(0.1,3,10)
+mu2list=np.linspace(0,np.pi/2,10) 
 
 FineSnapshots=[]
 
 for mu1 in (mu1list):
-   u=SolveHelmholtzProblem(mu1,FineMesh,False) # False = model with bias 
-   FineSnapshots.append(u.real)
-   NumberOfSnapshots+=1
+    for mu2 in (mu2list):
+        u=SolveAdvDiffProblem([mu1,mu2],FineMesh,False)
+        FineSnapshots.append(u)
+        NumberOfSnapshots+=1
 
 ## SVD ##
  
@@ -357,41 +380,11 @@ bkReducedBasis = np.dot(ChangeOfBasisMatrix,FineSnapshots)
             Offline POD                
     -----------------------------------
     number of modes for the bk model:  15
-    Parameter mu: 2.0
-    Parameter mu: 2.2758620689655173
-    Parameter mu: 2.5517241379310347
-    Parameter mu: 2.8275862068965516
-    Parameter mu: 3.103448275862069
-    Parameter mu: 3.3793103448275863
-    Parameter mu: 3.655172413793103
-    Parameter mu: 3.9310344827586206
-    Parameter mu: 4.206896551724138
-    Parameter mu: 4.482758620689655
-    Parameter mu: 4.758620689655173
-    Parameter mu: 5.0344827586206895
-    Parameter mu: 5.310344827586206
-    Parameter mu: 5.586206896551724
-    Parameter mu: 5.862068965517241
-    Parameter mu: 6.137931034482759
-    Parameter mu: 6.413793103448276
-    Parameter mu: 6.689655172413793
-    Parameter mu: 6.9655172413793105
-    Parameter mu: 7.241379310344827
-    Parameter mu: 7.517241379310345
-    Parameter mu: 7.793103448275862
-    Parameter mu: 8.068965517241379
-    Parameter mu: 8.344827586206897
-    Parameter mu: 8.620689655172413
-    Parameter mu: 8.89655172413793
-    Parameter mu: 9.172413793103448
-    Parameter mu: 9.448275862068964
-    Parameter mu: 9.724137931034482
-    Parameter mu: 10.0
-    eigenvalues:  [1.01034517e+03 3.14725998e+01 1.11418560e+01 7.61819228e+00
-     3.17560408e-02 3.50163923e-04 1.48325454e-04 8.73000096e-05
-     5.92237907e-05 1.06624287e-07 4.44776120e-08 2.14326995e-09
-     1.19343957e-10 3.07285654e-11 2.49205387e-12]
-    Relativ Information Content: 0.0
+    eigenvalues:  [2.03866121e+06 1.98788941e+05 7.63460590e+04 3.57206711e+03
+     3.26553742e+03 1.08125000e+03 4.08015648e+01 3.47784483e+01
+     2.37761217e+01 4.40644071e+00 3.45055983e-01 1.56321411e-01
+     1.29748847e-01 6.77589026e-02 9.30473722e-03]
+    Relativ Information Content: 1.3066825399477011e-09
 
 
 Now we can check for the reduced basis accuracy.
@@ -406,27 +399,30 @@ print("Offline Errors")
 CompressionErrors=[]
 H1compressionErrors=[]
 
-for snap in FineSnapshots:
-    ExactSolution =snap
-#for mu1 in (mu1list):
-        
-    #xactSolution=SolveAdvDiffProblem([mu1,mu2],FineMesh,True)
-    #ExactSolutionbis=SolveAdvDiffProblem([mu1,mu2],FineMesh,False)
-    CompressedSolutionU= ExactSolution@(massMat@bkReducedBasis.transpose())
-    ReconstructedCompressedSolution = np.dot(CompressedSolutionU, bkReducedBasis) #pas de tps 0
-
-    norml2ExactSolution=np.sqrt(ExactSolution@(L2massMat@ExactSolution))
-    normh1ExactSolution=np.sqrt(ExactSolution@(massMat@ExactSolution))
-    t=ReconstructedCompressedSolution-ExactSolution
+#for snap in FineSnapshots:
+#    ExactSolution =snap
+for mu1 in (mu1list):
+    for mu2 in (mu2list):
+        ExactSolution=SolveAdvDiffProblem([mu1,mu2],FineMesh,False)
+        #ExactSolutionbis=SolveAdvDiffProblem([mu1,mu2],FineMesh,False)
+        CompressedSolutionU= ExactSolution@(massMat@bkReducedBasis.transpose())
+        ReconstructedCompressedSolution = np.dot(CompressedSolutionU, bkReducedBasis) #pas de tps 0
     
-    if norml2ExactSolution !=0 and normh1ExactSolution != 0:
-        relError=np.sqrt(t@L2massMat@t)/norml2ExactSolution
-        relh1Error=np.sqrt(t@massMat@t)/normh1ExactSolution
-    else:
-        relError = np.linalg.norm(ReconstructedCompressedSolution-ExactSolution)    
-    CompressionErrors.append(relError)
-    H1compressionErrors.append(relh1Error)
+        norml2ExactSolution=np.sqrt(ExactSolution@(L2massMat@ExactSolution))
+        normh1ExactSolution=np.sqrt(ExactSolution@(massMat@ExactSolution))
+        t=ReconstructedCompressedSolution-ExactSolution
     
+        if norml2ExactSolution !=0 and normh1ExactSolution != 0:
+            relError=np.sqrt(t@L2massMat@t)/norml2ExactSolution
+            relh1Error=np.sqrt(t@massMat@t)/normh1ExactSolution
+        else:
+            relError = np.linalg.norm(ReconstructedCompressedSolution-ExactSolution)
+        CompressionErrors.append(relError)
+        H1compressionErrors.append(relh1Error)
+        if mu1==2.275 and mu2==0:
+            plot(FineMesh, ExactSolution, shading='gouraud', colorbar=True)
+            plot(FineMesh, ExactSolutionbis, shading='gouraud', colorbar=True)
+            plot(FineMesh, ReconstructedCompressedSolution, shading='gouraud', colorbar=True)
 print("L2 compression error =", CompressionErrors)
 print("H1 compression error =", H1compressionErrors)
 
@@ -438,8 +434,8 @@ print("H1 compression error =", H1compressionErrors)
                  Reduced basis accuracy
     -----------------------------------
     Offline Errors
-    L2 compression error = [4.47723597734413e-09, 1.2412688696194867e-09, 5.3217835620566985e-09, 9.315054003652782e-09, 2.0053826551050353e-09, 8.935416982510058e-09, 3.6281279110157356e-09, 2.3246903303759604e-09, 4.242167460944145e-09, 1.6904507008456697e-09, 5.1110407182999855e-09, 6.179020607280952e-09, 6.620549534117255e-09, 6.277701339382233e-09, 4.570356099243686e-09, 2.9322241336573282e-09, 1.5050759608196056e-09, 7.193808841528347e-09, 1.11508877967376e-09, 6.153135190477892e-09, 1.1846202532422098e-08, 1.4538158735678029e-08, 9.193717925713014e-09, 9.228672070244114e-09, 2.7718031439898604e-08, 8.666874082663221e-09, 9.78190461864707e-09, 4.444635785714987e-09, 7.311025348174467e-10, 2.1534826928028318e-10]
-    H1 compression error = [3.319589322603513e-08, 9.439645055777123e-09, 1.0958700353501982e-08, 1.3723228742437914e-08, 6.37163985760987e-09, 1.2879166458926225e-08, 1.167850442158435e-08, 9.593621277903067e-09, 7.164986926856745e-09, 9.410076827511853e-09, 1.89443762694241e-08, 3.1086642334338374e-08, 3.815373714456544e-08, 3.5519321674270044e-08, 1.952071026929563e-08, 6.702422865285836e-09, 2.826887039317766e-09, 1.537914264153323e-08, 3.6653386840663264e-09, 3.3891758575605295e-08, 6.592436941669615e-08, 8.715796909206848e-08, 5.375796368500121e-08, 4.024049941905735e-08, 1.3575373131696628e-07, 2.9424013097193815e-08, 1.2854934657753352e-08, 2.9607146270723654e-09, 1.3950239075621673e-09, 6.864694560773913e-10]
+    L2 compression error = [4.464044518872249e-06, 3.2948510494119077e-06, 2.290250760263449e-06, 1.4675605306478524e-06, 8.915840966017943e-07, 7.557337160345698e-07, 1.0344107189534399e-06, 1.4292838150362181e-06, 1.839008459568471e-06, 2.260403555595182e-06, 5.6419137062022195e-06, 3.0292521469093515e-06, 2.638316514323157e-06, 2.9735064128926414e-06, 3.1133058130523887e-06, 3.071241432378604e-06, 3.0903399820237977e-06, 3.4597258065352133e-06, 4.385570343265425e-06, 5.914766889195202e-06, 6.466039662035052e-06, 2.2828281714074417e-06, 3.719265675449631e-06, 4.07665068527531e-06, 3.733074907693582e-06, 3.3228223211801526e-06, 3.0466976159325082e-06, 2.8139328856957787e-06, 2.7628176702476534e-06, 4.417740843515894e-06, 6.878018194786359e-06, 4.343622954486847e-06, 5.6479455139503074e-06, 4.983955485533267e-06, 4.643064369149396e-06, 4.356187524270617e-06, 4.068903388344752e-06, 4.325844963914229e-06, 4.463838149770944e-06, 5.069891550394366e-06, 7.252968845644662e-06, 7.1161760893413015e-06, 5.825223666363488e-06, 4.9078655698982395e-06, 6.477105587901556e-06, 5.629623181915566e-06, 3.435985246077469e-06, 3.666591301006391e-06, 4.3126374326462805e-06, 4.930810679681774e-06, 7.765028936646113e-06, 1.0758022999484722e-05, 5.765204954875644e-06, 6.881897092663532e-06, 9.823215026672102e-06, 7.545388982775257e-06, 4.999511761920188e-06, 6.2501806939502245e-06, 5.956618838091266e-06, 5.393592227066799e-06, 8.420860575531317e-06, 1.530055486222261e-05, 6.4263504016545675e-06, 8.70585220712872e-06, 1.093564578021148e-05, 5.531485466266688e-06, 4.88248204190274e-06, 7.536660217951777e-06, 5.605723600322189e-06, 6.0522794976476525e-06, 1.0317064718671453e-05, 2.021801920620293e-05, 7.932386218640109e-06, 1.0181978031918473e-05, 1.1198354134825336e-05, 5.04031183625094e-06, 8.884774594090558e-06, 8.337725622089321e-06, 3.784191171541323e-06, 7.740234225023708e-06, 1.7396051662626773e-05, 2.490089983737211e-05, 1.0177261735907454e-05, 1.2420205045018331e-05, 1.2400700091772858e-05, 9.107295330219943e-06, 1.322879798530576e-05, 8.462896334417241e-06, 8.136017146956131e-06, 7.40573172752598e-06, 3.319480686662823e-05, 2.8865070992548302e-05, 1.2764357020348877e-05, 1.617969257609354e-05, 1.3977194466545846e-05, 1.1508196930328714e-05, 1.4325893468926336e-05, 9.600712833369026e-06, 1.5911312993681602e-05, 1.1185720850111092e-05]
+    H1 compression error = [2.7252932301889785e-05, 2.013750683906652e-05, 1.402739794153043e-05, 9.03203033440891e-06, 5.587308491638867e-06, 4.914693737670023e-06, 6.770478212303681e-06, 9.377848140674137e-06, 1.2148886270479421e-05, 1.5068140469183008e-05, 3.538305427019371e-05, 1.9688743754521856e-05, 1.6012708785290326e-05, 1.733984297032835e-05, 1.82353361047264e-05, 1.8227299129936916e-05, 1.8412505197389516e-05, 2.0446903618376864e-05, 2.592173938409032e-05, 3.554656059492433e-05, 3.796273452215796e-05, 1.4436918887135222e-05, 2.092649864639411e-05, 2.3683363675915002e-05, 2.2848548422432317e-05, 2.1207231093055237e-05, 1.9563234268424123e-05, 1.7360600445174253e-05, 1.6053761582722742e-05, 2.7579187022371675e-05, 3.8786741840616874e-05, 2.2619722066470402e-05, 3.0113021819023792e-05, 2.82996368838738e-05, 2.656205066435831e-05, 2.4652490908009468e-05, 2.3350583231630944e-05, 2.454448822024161e-05, 2.4121676619653384e-05, 3.0152660068145523e-05, 4.10866622034923e-05, 3.35404485790202e-05, 3.063462381567499e-05, 2.689789093972627e-05, 3.151552824445099e-05, 2.6637387395390685e-05, 1.79925538977804e-05, 2.1420579255796295e-05, 2.294970681598286e-05, 2.71096597917859e-05, 4.436459028061381e-05, 4.8435418288719186e-05, 3.0530069439965646e-05, 3.176041176607239e-05, 4.273556464930769e-05, 3.2664926942419514e-05, 2.3358513419411886e-05, 3.154113689298677e-05, 2.9969324371075966e-05, 2.759118381889585e-05, 4.675240980636919e-05, 6.692728464979316e-05, 3.213983174315306e-05, 3.521510054042893e-05, 4.534984712394246e-05, 2.3582656573518707e-05, 2.1276223191861312e-05, 3.4513081768172264e-05, 2.7845065891343934e-05, 2.9574001635377192e-05, 5.137634592785078e-05, 8.61508367731696e-05, 3.6750504542604e-05, 4.031827349791773e-05, 4.714785992850797e-05, 2.1638631599125338e-05, 3.3666719164020035e-05, 3.3455551337854464e-05, 1.983379959723556e-05, 3.3242891489082104e-05, 7.50107840515417e-05, 0.0001031623106532193, 4.529839464211873e-05, 5.104232741789849e-05, 5.126545848318776e-05, 3.3064402356663036e-05, 4.785757709236215e-05, 3.1064457959244826e-05, 3.314365823126774e-05, 2.8298730472408282e-05, 0.00013533770789244366, 0.0001159802382139368, 5.6097565167957744e-05, 6.732256071877919e-05, 5.852998165365517e-05, 5.1157193654252605e-05, 5.843907884382997e-05, 3.895991570740153e-05, 6.118099709629903e-05, 4.0914896868423286e-05]
 
 
 #### Construction of the sensors                                                                       
@@ -538,7 +534,7 @@ def qm_b(xm,C):
 
 
 ```python
-# sensors localizations from a coarser mesh M=25
+## sensors localizations from a coarser mesh M=25
 ## Coarse MESH
 CoarseMesh = skfem.MeshTri().refined(3).with_boundaries(                                                                
         {                                                                                                                                
@@ -643,8 +639,8 @@ and we approximate $u^{true}(\mu^{true})$ by $u=\sum_{i=1}^M (\eta_M)_i \ q_i +\
 yobs = np.zeros(NumberOfModesM)
 
 #mu1=mu1list[1]
-#utrue=SolveHelmholtzProblem(5,FineMesh,True).real
-        
+#mu2=mu2list[2]
+#utrue=SolveAdvDiffProblem([mu1,mu2],FineMesh,True)
 # Compute (q_m, v)_U
 qm_inner =utrue@ massMat
 
@@ -657,15 +653,13 @@ print("---- ONLINE PART: SOLVING REDUCED PROBLEM --")
 print("--------------------------------------------")
 
 RightHandSide= np.concatenate([yobs, np.zeros(NumberOfModesN)]) 
-
-
 ## SOLVING PROBLEM ##
 #EtaZ=np.linalg.solve(Kreduced,RightHandSide)
 #Eta, Z = EtaZ[:NumberOfModesM],EtaZ[NumberOfModesM:]
 #print("norm",np.linalg.norm(Areduced@Eta+Breduced@Z-yobs))
 #print("norm",np.linalg.norm(Breduced.transpose()@Eta))
+#u=np.dot(Eta,qmReducedBasis.transpose())+np.dot(Z,bkReducedBasis)
 
-# more stable:
 Z=np.linalg.solve(np.dot(np.dot(Breduced.transpose(),np.linalg.inv(Areduced)),Breduced),np.dot(np.dot(Breduced.transpose(),np.linalg.inv(Areduced)),yobs))
 Eta=np.linalg.solve(Areduced,yobs-np.dot(Breduced,Z))
 u=np.dot(Eta,qmReducedBasis.transpose())+np.dot(Z,bkReducedBasis)
@@ -676,6 +670,7 @@ ReconstructedCompressedSolution = u #reduced solution
 norml2ExactSolution=np.sqrt(ExactSolution@(L2massMat@ExactSolution))
 normh1ExactSolution=np.sqrt(ExactSolution@(massMat@ExactSolution))
 t=np.abs(ReconstructedCompressedSolution-ExactSolution)
+
 if norml2ExactSolution !=0 and normh1ExactSolution != 0:
     relError=np.sqrt(t@L2massMat@t)/norml2ExactSolution
     relh1Error=np.sqrt(t@massMat@t)/normh1ExactSolution
@@ -683,13 +678,11 @@ if norml2ExactSolution !=0 and normh1ExactSolution != 0:
 else:
     relError = np.linalg.norm(ReconstructedCompressedSolution-ExactSolution)
     
-print("L2 rel error: ",relError)
-print("H1 rel error: ",relh1Error)
+print("L2 relative error: ",relError)
+print("H1 relative error: ",relh1Error)
 
 plot(FineMesh,utrue, shading='gouraud', colorbar=True)
 plot(FineMesh,u, shading='gouraud', colorbar=True)
-#plot(FineMesh,np.dot(Z,bkReducedBasis), shading='gouraud', colorbar=True)
-#plot(FineMesh,Eta.dot(qmReducedBasis.transpose()), shading='gouraud', colorbar=True)
 #plot(FineMesh,np.dot(Z,bkReducedBasis)-utrue, shading='gouraud', colorbar=True)
 plot(FineMesh,u-utrue, shading='gouraud', colorbar=True)
 ```
@@ -697,8 +690,8 @@ plot(FineMesh,u-utrue, shading='gouraud', colorbar=True)
     --------------------------------------------
     ---- ONLINE PART: SOLVING REDUCED PROBLEM --
     --------------------------------------------
-    L2 rel error:  0.003289101212691039
-    H1 rel error:  0.00945153090424034
+    L2 relative error:  0.0004129386415760589
+    H1 relative error:  0.003935527762515732
 
 
 
@@ -725,16 +718,6 @@ plot(FineMesh,u-utrue, shading='gouraud', colorbar=True)
 ![png](./PBDW_27_4.png)
     
 
-
-
-```python
-
-```
-
-
-```python
-
-```
 
 
 ```python
