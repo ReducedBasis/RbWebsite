@@ -17,7 +17,7 @@ A reduced problem to solve in order to find an approximation solution in the red
 
 ## Codes
 
-[Python Notebook on advection-diffusion model problem](/post/PBDW)
+[Python Notebook on advection-diffusion model problem](/post/pbdw)
 
 [Python Notebook on Helmholtz model problem](/post/PBDWHelmholtz)
 

@@ -26,7 +26,7 @@ Computation of a coarse solution;
 + rectification of the coefficients
 
 ## Codes:
-[Python jupyter-notebook](/post/NIRB2Grid)
+[Python jupyter-notebook](/post/nirb2grid)
 
 [Code with FreeFem++](/uploads/NIRB.edp)
 

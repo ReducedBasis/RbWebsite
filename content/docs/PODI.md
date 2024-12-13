@@ -24,7 +24,7 @@ A POD procedure (visit the offline part of the POD-Galerkin [here](/docs/pod)
 An interpolation of the reduced coefficients
 
 ## Codes:
-[Python jupyter notebook](/post/PODI)
+[Python jupyter notebook](/post/podi)
 
 [Code with Python - Library MORDICUS](https://gitlab.com/mor_dicus/mordicus/-/tree/master/examples/ParametrizedVariability/Regression/RegressionThermal?ref_type=heads)
 

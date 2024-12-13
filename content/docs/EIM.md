@@ -45,7 +45,7 @@ $$ g^M(x,\nu^{target})=\sum_{i=1}^M \alpha(\nu^{target}) q(x). $$
 There exists a generalized form of this method (GEIM) and a discrete version named DEIM. The GEIM replaces the $M$ pointwise evaluations used by the EIM by general measures. In the presence of measurement noise, a stabilization of the method can be employed. 
 
 ## Codes:
-[Python jupyter notebook](/post/eim)
+[Python jupyter notebook](/post/eim/)
 
 [Code with FreeFem++](/uploads/EIM.edp)
 

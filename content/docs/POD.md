@@ -16,7 +16,7 @@ A POD procedure (in other words, SVD or PCA)
 A reduced problem with a Galerkin projection to solve
 
 ## Codes:
-[Python jupyter notebook](/post/PODGalerkin)
+[Python jupyter notebook](/post/podgalerkin)
 
 [Code with Feel++](/uploads/POD.cpp)
 
