@@ -11,7 +11,7 @@ See below the links for details on different RBM and simple numerical examples w
 - [Click here](/docs/pod) for the link to the POD-Galerkin
 - [Click here](/docs/podi) for the link to the POD+interpolation method (PODI)
 - [Click here](/docs/eim) for the link to the empirical interpolation method (EIM)
-- [Click here](/docs/nirb-2grid) for the link to the NIRB 2-grid method
+- [Click here](/docs/nirb2grid) for the link to the NIRB 2-grid method
 - [Click here](/docs/pbdw) for the link to PBDW
 
 
