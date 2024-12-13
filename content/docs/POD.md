@@ -120,8 +120,8 @@ Indeed, to find the maximum, we use the Lagrangian of (4) $J[\phi]=\overline{|(u
 $$\begin{equation}
     \frac{d}{d\delta}J[\phi+\delta \psi]_{|\delta=0}=0.
 \end{equation}$$
-$$
 
+$$
 \begin{align*}
      \frac{d}{d\delta}J[\phi+\delta\psi]_{|\delta=0}&=\frac{d}{d\delta}[\overline{|(u,\phi+\delta\psi)|^2}-\lambda(\lVert{\phi+\delta\psi}\rVert^2-1]_{|\delta=0},\nonumber \\
      &=\frac{d}{d\delta}[\overline{(u,\phi+\delta\psi)(\phi+\delta\psi,u)}-\lambda(\phi+\delta\psi,\phi+\delta\psi)]_{|\delta=0},\nonumber \\
