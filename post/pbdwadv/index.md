@@ -1,7 +1,7 @@
 ---
 # Documentation: https://docs.hugoblox.com/managing-content/
 
-title: ""
+title: "My Post"
 subtitle: ""
 summary: ""
 authors: []
@@ -77,11 +77,11 @@ import matplotlib.pyplot as plt
 
 We are going to use in this example a 2D  advection-diffusion problem with the Finite Element Method (FEM), which consists in 
 solving on a unit square (denoted $\Omega$) the following equations:
-$$\begin{align*}
+\begin{align}
 &- \Delta u + b(\mu) \cdot \nabla u =x_1 x_2 + g_1, \textrm{ in } \Omega,\\
 & u=4 x_2(1-x_2)(1+g_2), \textrm{ on } \Omega_{left}:=\partial \Omega \cap \{x=0\},\\
 & \partial_n u (\mu)=0, \textrm{ on } \partial \Omega \backslash \Omega_{left},
-\end{align*}$$
+\end{align}
 where $u \in H^1(\Omega)$ represents the unknown, $\mu \in \mathbb{R}^2$ is our variable parameter, and $g_1$ and $g_2$ are two functions that allow us to construct a model with a bias with respect to the data observations. The lack of knowledge of the value of $\mu$ constitutes the anticipated parametric ignorance in the model, while uncertainty in $g_1$ and $g_2$ constitutes the unanticipated non-parametric ignorance.
 
 We employ $P1$ finite elements to get a proper solution and obtain the system $\mathbf{A} \mathbf{x} =\mathbf{f}$ to solve where the assembled matrix $\mathbf{A}$ corresponds to the bilinear part $\int_{\Omega} (\nabla u, \nabla v) - (b(\mu),\nabla v) u + \int_{\Omega_{left}} (b(\mu), \nabla_n u) v $.
@@ -124,7 +124,7 @@ mesh
 
 
     
-![svg](./PBDW_5_1.svg)
+![svg](./pbdw_5_1.svg)
     
 
 
@@ -247,13 +247,13 @@ plot(mesh, u, shading='gouraud', colorbar=True)
 
 
     
-![png](./PBDW_9_1.png)
+![png](./pbdw_9_1.png)
     
 
 
 
     
-![png](./PBDW_9_2.png)
+![png](./pbdw_9_2.png)
     
 
 
@@ -309,7 +309,7 @@ plot(FineMesh, utrue, shading='gouraud', colorbar=True)
 
 
     
-![png](./PBDW_14_1.png)
+![png](./pbdw_14_1.png)
     
 
 
@@ -562,7 +562,7 @@ NumberOfModesM=np.shape(qmReducedBasis)[1]
 
 
     
-![png](./PBDW_23_0.png)
+![png](./pbdw_23_0.png)
     
 
 
@@ -703,19 +703,19 @@ plot(FineMesh,u-utrue, shading='gouraud', colorbar=True)
 
 
     
-![png](./PBDW_27_2.png)
+![png](./pbdw_27_2.png)
     
 
 
 
     
-![png](./PBDW_27_3.png)
+![png](./pbdw_27_3.png)
     
 
 
 
     
-![png](./PBDW_27_4.png)
+![png](./pbdw_27_4.png)
     
 
 
